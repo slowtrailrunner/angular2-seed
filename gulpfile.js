@@ -1,21 +1,40 @@
-var gulp = require('gulp');
-
-var assetsDev = 'assets/';
-var assetsProd = 'src/';
-
-var appDev = 'dev/';
-var appProd = 'app/';
-
-/* CSS */
-var sourcemaps = require('gulp-sourcemaps');
-var autoprefixer = require('gulp-autoprefixer');
-var sass = require('gulp-sass');
-var cssClean = require('gulp-clean-css');
+const gulp = require('gulp');
+const autoprefixer = require('gulp-autoprefixer');
+const sass = require('gulp-sass');
+const cssClean = require('gulp-clean-css');
 
 /* JS & TS */
-var typescript = require('gulp-typescript');
+const typescript = require('gulp-typescript');
+const sourcemaps = require('gulp-sourcemaps');
 
-var tsProject = typescript.createProject('tsconfig.json');
+const del = require('del');
+const concat = require('gulp-concat');
+const uglify = require('gulp-uglify');
+const minifyCss = require('gulp-minify-css');
+const filter = require('gulp-filter');
+const useref = require('gulp-useref');
+const gulpif = require('gulp-if');
+const minimist = require('minimist');
+
+
+const assetsDev = 'assets/';
+const assetsProd = 'src/';
+
+const appDev = 'dev/';
+const appProd = 'app/';
+
+var knownOptions = {
+    string: 'env',
+    default: {env: 'development'}
+};
+
+var options = minimist(process.argv.slice(2), knownOptions);
+
+var tsProject = typescript.createProject('tsconfig.json',{
+    typescript: require('typescript'),
+        outFile: 'app.js'
+});
+
 
 gulp.task('build-css', function () {
     return gulp.src(assetsDev + 'scss/*.scss')
@@ -27,6 +46,7 @@ gulp.task('build-css', function () {
             cascade: false
         }))
         .pipe(cssClean({compatibility: 'ie8'}))
+        .pipe(gulpif(options.env === 'production', minifyCss()))
         .pipe(gulp.dest(assetsProd + 'css/'));
 });
 
@@ -35,7 +55,7 @@ gulp.task('build-ts', function () {
         .pipe(sourcemaps.init())
         .pipe(typescript(tsProject))
         .pipe(sourcemaps.write())
-        //.pipe(jsuglify())
+        .pipe(gulpif(options.env === 'production', uglify()))
         .pipe(gulp.dest(appProd));
 });
 
@@ -56,6 +76,11 @@ gulp.task('bundle-ts', ['build-ts'], function() {
             console.log('Build error');
             console.log(err);
         });
+});
+
+// clean the contents of the distribution directory
+gulp.task('clean', function () {
+    return del(config.buildDir+'/**/*');
 });
 
 gulp.task('watch', function () {
